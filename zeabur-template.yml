@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://schema.zeabur.app/template.json
+apiVersion: zeabur.com/v1
+kind: Template
+metadata:
+  name: vb-weibo-plus
+spec:
+  description: |
+    Single-user local Weibo client (Spring Boot + SQLite + Playwright QR login)
+    fronted by an nginx reverse proxy with Basic Auth.
+  services:
+    - name: weibo-plus
+      template: PREBUILT_V2
+      spec:
+        source:
+          image: yingdao/vb-weibo-plus:latest
+        ports:
+          - id: web
+            port: 18080
+            type: HTTP
+        healthCheck:
+          type: TCP
+          port: web
+        volumes:
+          - id: data
+            dir: /data
+        env:
+          APP_HOST:
+            default: ${CONTAINER_HOSTNAME}
+            expose: true
+            readonly: true
+
+    - name: nginx
+      dependencies:
+        - weibo-plus
+      template: PREBUILT_V2
+      spec:
+        source:
+          image: nginx:1.27-alpine
+        ports:
+          - id: web
+            port: 80
+            type: HTTP
+        env:
+          WEIBO_UPSTREAM:
+            default: ${APP_HOST}:18080
+            readonly: true
+        configs:
+          # Rendered by the nginx image entrypoint (envsubst on container start):
+          # only ${WEIBO_UPSTREAM} is substituted, nginx runtime vars like $host stay intact.
+          - path: /etc/nginx/templates/default.conf.template
+            permission: 493
+            envsubst: false
+            template: |
+              server {
+                  listen 80;
+                  client_max_body_size 500m;
+
+                  location / {
+                      auth_basic "vb-weibo-plus";
+                      auth_basic_user_file /etc/nginx/conf.d/.htpasswd;
+
+                      proxy_pass http://${WEIBO_UPSTREAM};
+                      proxy_set_header Host $host;
+                      proxy_set_header X-Real-IP $remote_addr;
+                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                      proxy_set_header X-Forwarded-Proto $scheme;
+                      # QR login long-polls up to 300s; keep proxy timeouts above that
+                      proxy_read_timeout 360s;
+                      proxy_send_timeout 360s;
+                  }
+              }
+          - path: /etc/nginx/conf.d/.htpasswd
+            permission: 420
+            envsubst: false
+            template: |
+              admin:$apr1$byrDkdR8$apzBGql8DCERKYhA2DeG/0
