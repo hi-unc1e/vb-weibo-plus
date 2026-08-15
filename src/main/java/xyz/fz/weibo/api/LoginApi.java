@@ -15,6 +15,7 @@ import xyz.fz.weibo.client.exception.WeiboException;
 import xyz.fz.weibo.model.response.LoginResponse;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 扫码登录：Playwright headless Chromium 打开 chat 页，轮询 SUB cookie 直到用户扫码确认。
@@ -26,6 +27,9 @@ public class LoginApi {
     private static final String CHAT_URL = "https://api.weibo.com/chat";
 
     private final WeiboCookieHolder holder;
+
+    // 并发的登录浏览器会触发微博风控不出二维码，同一时刻只允许一个登录会话
+    private final AtomicBoolean loginInProgress = new AtomicBoolean(false);
 
     @Value("${weibo.qr-timeout-seconds:300}")
     private int qrTimeoutSeconds;
@@ -41,6 +45,9 @@ public class LoginApi {
     }
 
     public LoginResponse qrLogin() {
+        if (!loginInProgress.compareAndSet(false, true)) {
+            throw new WeiboException("扫码登录进行中，请勿重复发起");
+        }
         try (Playwright pw = Playwright.create();
              Browser browser = pw.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true))) {
             BrowserContext ctx = browser.newContext();
@@ -92,6 +99,7 @@ public class LoginApi {
         } catch (Exception e) {
             throw new WeiboException("Playwright 浏览器未安装，请先执行：mvn exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args=\"install chromium\"", e);
         } finally {
+            loginInProgress.set(false);
             currentContext = null;
             currentPage = null;
         }

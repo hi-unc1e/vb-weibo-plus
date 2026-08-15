@@ -7,10 +7,13 @@ import com.microsoft.playwright.options.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import xyz.fz.weibo.client.WeiboCookieHolder;
+import xyz.fz.weibo.client.exception.WeiboException;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -92,5 +95,15 @@ class LoginApiTest {
 
         assertThat(loginApi.captureQrImage()).isEqualTo(expected);
         verify(locator).screenshot();
+    }
+
+    @Test
+    void qrLogin_rejects_when_login_already_in_progress() {
+        // 已有登录会话运行时，再次发起应立即拒绝，避免并发浏览器触发微博风控
+        ReflectionTestUtils.setField(loginApi, "loginInProgress", new AtomicBoolean(true));
+
+        assertThatThrownBy(loginApi::qrLogin)
+            .isInstanceOf(WeiboException.class)
+            .hasMessageContaining("登录进行中");
     }
 }
