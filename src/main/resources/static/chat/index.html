@@ -10,6 +10,19 @@
   <script src="marked.min.js" defer></script>
   <script src="dompurify.min.js" defer></script>
   <script src="chat.js" defer></script>
+  <script>
+    // 手机（小屏 + 触屏）自动跳转移动版；localStorage 标记过“桌面版”则留在桌面
+    (function () {
+      try {
+        if (localStorage.getItem("weibo-chat:prefer-desktop")) return;
+        if (matchMedia("(max-width: 768px)").matches && matchMedia("(pointer: coarse)").matches) {
+          location.replace("/chat/mobile/");
+        }
+      } catch (_) {
+        // 隐私模式下忽略，维持桌面版
+      }
+    })();
+  </script>
 </head>
 <body>
   <main class="app" aria-labelledby="app-title">
