@@ -22,6 +22,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 作者样式的 display 会覆盖 UA 对 [hidden] 的 display:none，显式兜底 */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -692,16 +697,20 @@ a {
 /* ---------- 图片查看器 ---------- */
 
 .image-viewer {
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: #000;
+  max-width: none;
+  max-height: none;
+}
+
+/* 布局属性只挂在 [open] 上，避免覆盖 UA 对未打开 dialog 的 display:none */
+.image-viewer[open] {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100dvh;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  border: none;
-  padding: 0;
-  background: #000;
   display: flex;
   flex-direction: column;
   align-items: center;
