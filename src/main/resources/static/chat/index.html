@@ -16,7 +16,7 @@
       try {
         if (localStorage.getItem("weibo-chat:prefer-desktop")) return;
         if (matchMedia("(max-width: 768px)").matches && matchMedia("(pointer: coarse)").matches) {
-          location.replace("/chat/mobile/");
+          location.replace("/chat/mobile/index.html");
         }
       } catch (_) {
         // 隐私模式下忽略，维持桌面版
