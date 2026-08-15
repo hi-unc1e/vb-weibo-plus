@@ -73,4 +73,5 @@ spec:
             permission: 420
             envsubst: false
             template: |
-              admin:$apr1$byrDkdR8$apzBGql8DCERKYhA2DeG/0
+              # Basic Auth 凭据：部署前用「openssl passwd -apr1 <密码>」生成并替换此行，真实哈希勿提交进仓库
+              admin:$apr1$REPLACE_ME$xxxxxxxxxxxxxxxxxxxxxx

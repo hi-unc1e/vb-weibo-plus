@@ -46,3 +46,6 @@ desktop.ini
 
 # 运行脚本（本地分发用，不进版本控制）
 run-target.bat
+
+# Basic Auth 凭据，勿提交（本地生成：openssl passwd -apr1 <密码>）
+nginx/.htpasswd
