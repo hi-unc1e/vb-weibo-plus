@@ -188,6 +188,10 @@ class PostPageTest {
             }
             sendJson(exchange, "{\"fetched\":0,\"inserted\":0,\"ignored\":0}");
         });
+        server.createContext("/post/daily-brief", exchange -> sendJson(exchange, """
+                {"date":"2026-08-05","summary":"今日重点","postCount":1,"createdAt":1,
+                 "items":[{"mblogId":"post-default","summary":"查看原微博","postUrl":"https://weibo.com/1/post-default"}]}
+                """));
         server.createContext("/weibo/login/status", exchange -> {
             loginStatusRequests.incrementAndGet();
             boolean valid = !loginInvalid.get();
@@ -230,7 +234,9 @@ class PostPageTest {
         baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
 
         playwright = Playwright.create();
-        browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+        BrowserType.LaunchOptions launchOptions = new BrowserType.LaunchOptions().setHeadless(true);
+        if (Boolean.getBoolean("playwright.systemChrome")) launchOptions.setChannel("chrome");
+        browser = playwright.chromium().launch(launchOptions);
     }
 
     @AfterAll
@@ -973,6 +979,21 @@ class PostPageTest {
             exchange.getResponseBody().write(body);
             exchange.close();
         }
+    }
+
+    @Test
+    void mobile_page_shows_brief_link_without_horizontal_overflow() {
+        Page page = browser.newPage();
+        page.setViewportSize(390, 844);
+        page.navigate(baseUrl + "/post/index.html", NAVIGATE_OPTIONS);
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("每日 AI 简报")).click();
+
+        assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("查看原微博")))
+                .hasAttribute("href", "https://weibo.com/1/post-default");
+        org.assertj.core.api.Assertions.assertThat((Boolean) page.evaluate(
+                "() => document.documentElement.scrollWidth <= window.innerWidth"))
+                .isTrue();
+        page.close();
     }
 
     private static void sendJson(HttpExchange exchange, String json) throws IOException {

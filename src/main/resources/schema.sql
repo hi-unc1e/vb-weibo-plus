@@ -32,6 +32,13 @@ CREATE INDEX IF NOT EXISTS idx_posts_uid_ctime_post ON posts(uid, created_at DES
 CREATE INDEX IF NOT EXISTS idx_posts_ctime_post ON posts(created_at DESC, post_id DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_post_id ON posts(post_id);
 
+CREATE TABLE IF NOT EXISTS daily_briefs (
+    date            VARCHAR PRIMARY KEY NOT NULL,
+    result          TEXT NOT NULL,
+    post_count      INT NOT NULL,
+    created_at      BIGINT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS groups (
     gid           BIGINT PRIMARY KEY,
     name          VARCHAR NOT NULL DEFAULT '',

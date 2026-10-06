@@ -15,6 +15,12 @@
     loginQrImg: document.querySelector("#login-qr-img"),
     currentFilter: document.querySelector("#current-filter"),
     feedCount: document.querySelector("#feed-count"),
+    briefToggle: document.querySelector("#brief-toggle"),
+    briefPanel: document.querySelector("#brief-panel"),
+    briefDate: document.querySelector("#brief-date"),
+    briefGenerate: document.querySelector("#brief-generate"),
+    briefState: document.querySelector("#brief-state"),
+    briefContent: document.querySelector("#brief-content"),
     datesState: document.querySelector("#dates-state"),
     datesList: document.querySelector("#dates-list"),
     posts: document.querySelector("#posts"),
@@ -90,6 +96,7 @@
 
   async function fetchJson(url, options) {
     const response = await fetch(url, options);
+    if (response.status === 204) return null;
     if (!response.ok) {
       let msg = `HTTP ${response.status}`;
       try {
@@ -658,7 +665,57 @@
     }
     if (itemEl) itemEl.classList.add("active");
     state.selectedDate = date;
+    if (!elements.briefPanel.hidden) loadBrief(date);
     await loadPosts(date);
+  }
+
+  async function loadBrief(date) {
+    elements.briefDate.textContent = `${date} · 全部博主`;
+    elements.briefContent.replaceChildren();
+    elements.briefGenerate.hidden = true;
+    showState(elements.briefState, "正在加载简报…");
+    try {
+      const brief = await fetchJson(`/post/daily-brief?date=${encodeURIComponent(date)}`);
+      if (state.selectedDate !== date) return;
+      if (!brief) {
+        showState(elements.briefState, "这一天还没有简报。");
+        elements.briefGenerate.hidden = false;
+        return;
+      }
+      showState(elements.briefState, `基于 ${brief.postCount} 条本地微博`);
+      const summary = document.createElement("p");
+      summary.textContent = brief.summary;
+      elements.briefContent.appendChild(summary);
+      const list = document.createElement("ol");
+      for (const item of brief.items) {
+        const row = document.createElement("li");
+        const link = document.createElement("a");
+        link.href = item.postUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = item.summary;
+        row.appendChild(link);
+        list.appendChild(row);
+      }
+      elements.briefContent.appendChild(list);
+    } catch (error) {
+      showState(elements.briefState, `简报加载失败：${error.message}`);
+    }
+  }
+
+  async function generateBrief() {
+    const date = state.selectedDate;
+    if (!date) return;
+    elements.briefGenerate.disabled = true;
+    showState(elements.briefState, "正在生成，可能需要一两分钟…");
+    try {
+      await fetchJson(`/post/daily-brief?date=${encodeURIComponent(date)}`, {method: "POST"});
+      await loadBrief(date);
+    } catch (error) {
+      showState(elements.briefState, `生成失败：${error.message}`);
+    } finally {
+      elements.briefGenerate.disabled = false;
+    }
   }
 
   async function loadPosts(date) {
@@ -1165,6 +1222,12 @@
   elements.retryPosts.addEventListener("click", () => {
     if (state.selectedDate) loadPosts(state.selectedDate);
   });
+  elements.briefToggle.addEventListener("click", () => {
+    elements.briefPanel.hidden = !elements.briefPanel.hidden;
+    elements.briefToggle.setAttribute("aria-expanded", String(!elements.briefPanel.hidden));
+    if (!elements.briefPanel.hidden && state.selectedDate) loadBrief(state.selectedDate);
+  });
+  elements.briefGenerate.addEventListener("click", generateBrief);
 
   elements.syncHistoryOpen.addEventListener("click", openSyncHistoryDialog);
   elements.syncHistoryCancel.addEventListener("click", () => {

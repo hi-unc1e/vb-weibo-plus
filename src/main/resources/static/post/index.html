@@ -62,10 +62,16 @@
         <header class="feed-header">
           <h2 id="current-filter">全部微博</h2>
           <span id="feed-count" class="feed-count"></span>
+          <button id="brief-toggle" class="brief-toggle" type="button" aria-expanded="false">每日 AI 简报</button>
           <button id="sync-history-open" class="sync-history-open" type="button" hidden>同步历史</button>
           <button id="search-open" class="search-open" type="button">高级搜索</button>
         </header>
 
+        <section id="brief-panel" class="brief-panel" aria-label="每日 AI 简报" hidden>
+          <div class="brief-heading"><strong id="brief-date"></strong><button id="brief-generate" type="button">生成简报</button></div>
+          <p id="brief-state" role="status"></p>
+          <div id="brief-content"></div>
+        </section>
         <div class="posts-shell">
           <div class="posts" id="posts" aria-live="polite"></div>
           <div class="posts-feedback">

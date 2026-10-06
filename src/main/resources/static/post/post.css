@@ -493,7 +493,7 @@ h1#app-title {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 48px minmax(0, 1fr);
+  grid-template-rows: 48px auto minmax(0, 1fr);
   background: transparent;
 }
 .feed-header {
@@ -511,6 +511,23 @@ h1#app-title {
   white-space: nowrap;
 }
 .feed-count { white-space: nowrap; }
+
+.brief-toggle { margin-left: auto; white-space: nowrap; }
+.brief-panel {
+  max-height: min(42vh, 360px);
+  overflow-y: auto;
+  padding: 12px 18px;
+  border-bottom: 2px dashed var(--rule);
+  background: var(--paper);
+  line-height: 1.5;
+}
+.brief-panel[hidden] { display: none; }
+.brief-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brief-panel p { margin: 8px 0; }
+.brief-panel ol { margin: 8px 0; padding-left: 24px; }
+.brief-panel li { margin: 6px 0; }
+.brief-panel a { color: var(--ink); text-decoration-color: var(--accent); }
+
 
 .posts-shell {
   position: relative;
@@ -1255,4 +1272,35 @@ h1#app-title {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; }
+}
+
+@media (max-width: 700px) {
+  html, body { min-width: 0; height: auto; }
+  body { overflow-x: hidden; }
+  .app { min-width: 0; min-height: 100dvh; height: auto; overflow: visible; border-radius: 0; box-shadow: none; }
+  .workspace { display: flex; flex-direction: column; min-width: 0; }
+  .bloggers-panel { display: block; border-right: 0; border-bottom: 2px dashed var(--rule); }
+  .bloggers-heading, .dates-heading { min-height: 44px; }
+  .bloggers-panel .search-box, .panel-feedback, .login-expired { margin: 8px 12px; }
+  .bloggers-list { display: flex; overflow-x: auto; padding: 6px 8px; gap: 6px; }
+  .blogger-row { flex: 0 0 auto; width: auto; max-width: 180px; min-height: 44px; padding: 5px 8px; }
+  .dates-panel { display: block; border-right: 0; border-bottom: 2px dashed var(--rule); }
+  .dates-list { display: flex; overflow-x: auto; max-height: 145px; }
+  .year-group { flex: 0 0 auto; }
+  .year-header, .month-header { min-height: 40px; }
+  .year-months .date-item { padding-left: 16px; }
+  .date-item { min-height: 42px; }
+  .feed { display: block; }
+  .feed-header { min-height: 50px; height: auto; flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
+  .feed-header h2 { font-size: 17px; }
+  .feed-count { letter-spacing: 0; }
+  .brief-toggle { margin-left: 0; }
+  .posts-shell { overflow: visible; }
+  .posts { height: auto; overflow: visible; padding: 8px; }
+  .post-card { max-width: 100%; grid-template-columns: 36px minmax(0, 1fr); gap: 8px; padding: 10px; margin: 8px 0; }
+  .post-avatar { width: 36px; height: 36px; }
+  .post-pics { max-width: 100%; }
+  .post-pics.one-image { grid-template-columns: minmax(0, 1fr); }
+  dialog { max-width: calc(100vw - 20px); }
+  .image-viewer { padding: 12px; }
 }

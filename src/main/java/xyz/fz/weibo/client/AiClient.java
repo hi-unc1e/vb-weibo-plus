@@ -177,6 +177,10 @@ public class AiClient {
         }
     }
 
+    public boolean isConfigured() {
+        return baseUrl != null && !baseUrl.isBlank();
+    }
+
     private String chatUrl() {
         return baseUrl.endsWith("/") ? baseUrl + "v1/chat/completions" : baseUrl + "/v1/chat/completions";
     }
