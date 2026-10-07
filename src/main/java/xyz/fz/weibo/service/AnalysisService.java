@@ -31,7 +31,7 @@ public class AnalysisService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final int MAX_RANGE_MESSAGES = 500;
+    private static final int MAX_RANGE_MESSAGES = 1000;
 
     private final MessageRepository messageRepository;
     private final AnalysisRepository analysisRepository;
@@ -105,7 +105,7 @@ public class AnalysisService {
         Page<MessageEntity> page = messageRepository.findPage(gid, range.start(), range.end(),
                 null, null, MessageRepository.pageRequest(1, limit));
         if (!"day".equals(range.mode()) && page.getTotalElements() > MAX_RANGE_MESSAGES) {
-            throw new InvalidRequestException("范围内消息超过 500 条，请选择较短范围。");
+            throw new InvalidRequestException("范围内消息超过 " + MAX_RANGE_MESSAGES + " 条，请选择较短范围。");
         }
         List<MessageEntity> messages = page.getContent();
 

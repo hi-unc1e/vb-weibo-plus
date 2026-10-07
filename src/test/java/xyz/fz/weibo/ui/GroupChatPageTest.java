@@ -366,8 +366,8 @@ class GroupChatPageTest {
                 sendJson(exchange, "{\"rangeMode\":\"since_last\",\"messageCount\":0,\"analyzedCount\":0,\"hasPrevious\":false}");
             } else {
                 int count = query != null && query.contains("range=last3") ? 12
-                        : query != null && query.contains("range=last7") ? 620 : 2;
-                int analyzed = Math.min(count, 500);
+                        : query != null && query.contains("range=last7") ? 1_200 : 2;
+                int analyzed = Math.min(count, 1_000);
                 sendJson(exchange, "{\"rangeMode\":\"last3\",\"messageCount\":" + count
                         + ",\"analyzedCount\":" + analyzed + ",\"hasPrevious\":false}");
             }
@@ -472,7 +472,7 @@ class GroupChatPageTest {
         assertThat(page.locator("#analysis-title")).containsText("LinkNow");
         page.locator("#analysis-range").selectOption("last7");
         assertThat(page.locator("#analysis-date")).isHidden();
-        assertThat(page.locator("#analysis-range-status")).containsText("超过单次上限 500 条");
+        assertThat(page.locator("#analysis-range-status")).containsText("超过单次上限 1000 条");
         assertThat(page.locator("#analysis-submit")).isDisabled();
         Assertions.assertThat(page.locator(".analysis-dialog").boundingBox().width).isLessThan(390);
         page.locator("#analysis-close").click();

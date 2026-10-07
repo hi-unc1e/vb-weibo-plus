@@ -243,13 +243,13 @@ class AnalysisServiceTest {
     @Test
     void preview_recent_ranges_reports_message_count_and_coverage_limit() {
         when(messageRepository.countByGidAndCreatedAtBetween(eq(GID), anyLong(), anyLong()))
-                .thenReturn(620L);
+                .thenReturn(1_200L);
 
         var threeDays = analysisService.preview(GID, null, "last3");
         var sevenDays = analysisService.preview(GID, null, "last7");
 
-        assertThat(threeDays.messageCount()).isEqualTo(620);
-        assertThat(threeDays.analyzedCount()).isEqualTo(500);
+        assertThat(threeDays.messageCount()).isEqualTo(1_200);
+        assertThat(threeDays.analyzedCount()).isEqualTo(1_000);
         assertThat(threeDays.rangeStart()).isNotNull();
         assertThat(sevenDays.rangeStart().compareTo(threeDays.rangeStart())).isNegative();
     }
@@ -270,7 +270,7 @@ class AnalysisServiceTest {
             return List.of(mapper.mapRow(rs, 0));
         });
         when(messageRepository.findPage(eq(GID), eq(501L), anyLong(), any(), any(),
-                eq(MessageRepository.pageRequest(1, 500))))
+                eq(MessageRepository.pageRequest(1, 1_000))))
                 .thenReturn(new PageImpl<>(List.of(message(8L, "甲", "新增消息", "文本", 2_000L))));
         when(aiClient.chat(any())).thenReturn("新增摘要");
         when(analysisRepository.save(any())).thenAnswer(inv -> {
@@ -297,14 +297,14 @@ class AnalysisServiceTest {
 
     @Test
     void recent_range_rejects_more_than_limit_without_calling_ai() {
-        Pageable pageable = MessageRepository.pageRequest(1, 500);
+        Pageable pageable = MessageRepository.pageRequest(1, 1_000);
         when(messageRepository.findPage(eq(GID), anyLong(), anyLong(), any(), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(message(8L, "甲", "消息", "文本", 2_000L)),
-                        pageable, 501));
+                        pageable, 1_001));
 
         assertThatThrownBy(() -> analysisService.analyze(GID, null, "last7", "总结"))
                 .isInstanceOf(InvalidRequestException.class)
-                .hasMessageContaining("超过 500 条");
+                .hasMessageContaining("超过 1000 条");
         verify(aiClient, never()).chat(any());
     }
 
