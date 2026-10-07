@@ -729,6 +729,13 @@ h1 {
   gap: 5px;
 }
 
+.composer-tools .brief-link {
+  align-self: center;
+  color: #b42318;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 #history-open {
   margin-left: auto;
 }

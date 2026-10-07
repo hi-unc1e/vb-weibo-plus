@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>群聊每日 AI 简报</title>
+  <link rel="stylesheet" href="brief.css">
+  <script src="brief.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div><span class="eyebrow">WEIBO / DAILY BRIEF</span><h1>群聊每日 AI 简报</h1></div>
+      <a class="back" href="/chat/index.html">返回群聊 ↗</a>
+    </header>
+    <section class="controls" aria-label="选择简报日期">
+      <label>群聊<select id="group"></select></label>
+      <label>日期<input id="date" type="date"></label>
+      <button id="generate" type="button">生成这一天的简报</button>
+    </section>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="brief" hidden>
+      <div class="brief-head"><p id="brief-date"></p><p id="coverage"></p></div>
+      <h2>今日概览</h2><p id="summary" class="summary"></p>
+      <h2>值得回看的消息</h2><ol id="items"></ol>
+    </section>
+    <section id="source" hidden aria-label="原消息及上下文">
+      <div class="source-heading"><h2>原消息 · 附近上下文</h2><button id="close-source" type="button">关闭</button></div>
+      <div id="context"></div>
+    </section>
+    <footer>AI 摘要仅供回看，以原消息为准。<a href="/post/index.html">查看微博简报</a></footer>
+  </main>
+</body>
+</html>

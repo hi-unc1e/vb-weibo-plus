@@ -39,6 +39,15 @@ CREATE TABLE IF NOT EXISTS daily_briefs (
     created_at      BIGINT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS group_daily_briefs (
+    gid             BIGINT NOT NULL,
+    date            VARCHAR NOT NULL,
+    result          TEXT NOT NULL,
+    message_count   INT NOT NULL,
+    created_at      BIGINT NOT NULL,
+    PRIMARY KEY (gid, date)
+);
+
 CREATE TABLE IF NOT EXISTS groups (
     gid           BIGINT PRIMARY KEY,
     name          VARCHAR NOT NULL DEFAULT '',

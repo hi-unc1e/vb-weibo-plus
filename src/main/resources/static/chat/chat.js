@@ -786,6 +786,7 @@
     state.hasMore = false;
     elements.newMessages.hidden = true;
     localStorage.setItem(LAST_GROUP_KEY, String(gid));
+    document.querySelector("#brief-link").href = `/chat/brief/index.html?gid=${gid}`;
     elements.currentGroup.textContent = group.name || `群聊 ${group.gid}`;
     updateCurrentGroupHeader();
     elements.currentId.textContent = String(group.gid);

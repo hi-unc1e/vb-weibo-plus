@@ -3,7 +3,7 @@
 本机单用户微博客户端。用一个微博账号扫码登录后，服务在后台将群聊与博主发布的最新微博增量同步到本地 SQLite，并提供两个网页界面：
 
 - **本地微博**：添加博主，按日历浏览某一天的微博，支持按时间范围同步历史微博；可生成、回看每日 AI 简报并跳转原微博
-- **微博群聊**：查看群聊消息、发送文字/图片/视频，可选接入 OpenAI 兼容模型的 AI 分析
+- **微博群聊**：查看群聊消息、发送文字/图片/视频，可选接入 OpenAI 兼容模型的 AI 分析；按日期生成、回看每日 AI 简报并定位原消息
 
 所有微博图片、视频经本地服务代理后直接在浏览器预览，无需在浏览器中登录微博。
 
@@ -125,11 +125,12 @@ mvn spring-boot:run
 - `weibo.chat.auto-sync-gids`：定时增量同步的群号，逗号分隔，留空则不同步任何群
 - `weibo.chat.sync-group-fixed-delay`：群消息增量同步间隔，支持 `20s` / `30000ms` 等 Duration 写法
 - `weibo.media.ffmpeg-path`：ffmpeg 可执行文件路径
-- `weibo.ai.base-url`：OpenAI 兼容 API 地址，留空则禁用 AI 分析
+- `weibo.ai.base-url`：OpenAI 兼容 API 根地址，例如 `WEIBO_AI_BASE_URL=https://api.example.com`；**不要带 `/v1`**，程序会拼接 `/v1/chat/completions`。留空则禁用 AI 分析
 - `weibo.ai.api-key`：AI API 密钥
 - `weibo.ai.model`：模型名称
 - `weibo.ai.timeout-seconds`：AI 请求超时秒数
 - `weibo.ai.system-prompt`：系统提示词
 - 每日简报使用同一组 AI 环境变量。每天北京时间 08:00 尝试生成前一天的简报；若当时没有本地微博或 AI 未配置，可在本地微博页面选中日期后点击「每日 AI 简报」→「生成简报」。已生成的简报保存在 SQLite，同一日期不会重复调用 AI。每次最多取该日最近 200 条微博作为生成输入，简报条目只会链接到已保存的微博。
+- 群聊每日简报入口是 `/chat/brief/index.html`，可选群聊与日期，生成后点击条目查看原消息及附近上下文。页面默认选取所选群聊最新消息的日期；每天北京时间 08:00 也会尝试生成前一天有本地消息的群聊简报。每次最多分析该日最近 300 条消息，页面会显示实际覆盖条数。
 - `spring.servlet.multipart.max-file-size`：群聊发图/发视频的单文件上传上限，需容纳手机原图
 - `spring.servlet.multipart.max-request-size`：整个 multipart 请求上限，略大于文件上限即可
