@@ -74,7 +74,10 @@
     analysisClose: document.querySelector("#analysis-close"),
     analysisTitle: document.querySelector("#analysis-title"),
     analysisForm: document.querySelector("#analysis-form"),
+    analysisRange: document.querySelector("#analysis-range"),
     analysisDate: document.querySelector("#analysis-date"),
+    analysisDateLabel: document.querySelector("#analysis-date-label"),
+    analysisRangeStatus: document.querySelector("#analysis-range-status"),
     analysisPrompt: document.querySelector("#analysis-prompt"),
     analysisSubmit: document.querySelector("#analysis-submit"),
     analysisFeedback: document.querySelector("#analysis-feedback"),
@@ -114,6 +117,7 @@
     total: 0,
     size: 20,
     requestVersion: 0,
+    previewVersion: 0,
     loading: false
   };
   const historyState = {
@@ -1206,9 +1210,13 @@
         );
         return;
       }
+      const params = new URLSearchParams(location.search);
+      const requestedGid = Number(params.get("gid"));
       const savedGid = Number(localStorage.getItem(LAST_GROUP_KEY));
-      const initial = state.groups.find(group => group.gid === savedGid) || state.groups[0];
+      const initial = state.groups.find(group => group.gid === requestedGid)
+        || state.groups.find(group => group.gid === savedGid) || state.groups[0];
       await selectGroup(initial.gid);
+      if (params.get("analysis") === "1") openAnalysisDialog();
     } catch {
       elements.groupsCount.textContent = "加载失败";
       elements.groupsState.textContent = "群聊列表加载失败，请稍后重试。";
@@ -1275,14 +1283,20 @@
 
   /* ---------- 群聊分析 ---------- */
 
-  const ANALYSIS_DEFAULT_PROMPT = "请总结今天群聊的主要讨论话题和参与者";
+  const ANALYSIS_DEFAULT_PROMPT = "请总结所选时间范围内群聊的主要讨论话题和参与者";
 
   function resetAnalysis(gid) {
     analysisState.requestVersion++;
+    analysisState.previewVersion++;
     analysisState.gid = gid;
+    elements.analysisRange.value = "day";
     analysisState.page = 1;
     analysisState.total = 0;
     elements.analysisDate.value = localDateValue(new Date());
+    elements.analysisDate.hidden = false;
+    elements.analysisDate.required = true;
+    elements.analysisDateLabel.hidden = false;
+    elements.analysisRangeStatus.textContent = "正在查询消息状态…";
     elements.analysisPrompt.value = ANALYSIS_DEFAULT_PROMPT;
     elements.analysisList.replaceChildren();
     elements.analysisPageState.textContent = "";
@@ -1293,6 +1307,40 @@
     elements.analysisFeedback.textContent = "";
     elements.analysisSubmit.disabled = false;
     elements.analysisSubmit.textContent = "🤖 分析";
+  }
+
+  async function refreshAnalysisPreview() {
+    const version = ++analysisState.previewVersion;
+    const mode = elements.analysisRange.value;
+    const isDay = mode === "day";
+    elements.analysisDate.hidden = !isDay;
+    elements.analysisDateLabel.hidden = !isDay;
+    elements.analysisDate.required = isDay;
+    elements.analysisRangeStatus.textContent = "正在查询消息状态…";
+    const params = new URLSearchParams({gid: String(analysisState.gid), range: mode});
+    if (isDay) params.set("date", elements.analysisDate.value);
+    try {
+      const preview = await fetchJson(`/chat/analyses/preview?${params}`, {cache: "no-store"});
+      if (version !== analysisState.previewVersion) return;
+      const last = preview.lastAnalyzedAt ? `上次分析：${preview.lastAnalyzedAt}。` : "暂无历史分析。";
+      const period = preview.rangeStart ? `范围：${preview.rangeStart} ～ ${preview.rangeEnd}。` : "";
+      if (mode === "since_last" && !preview.hasPrevious) {
+        elements.analysisRangeStatus.textContent = `${last}请先完成一次分析。`;
+      } else if (preview.messageCount > preview.analyzedCount) {
+        elements.analysisRangeStatus.textContent = `${last}${period}共有 ${preview.messageCount} 条消息，超过单次上限 ${preview.analyzedCount} 条，请选择较短范围。`;
+      } else {
+        elements.analysisRangeStatus.textContent = `${last}${period}待分析 ${preview.messageCount} 条消息。`;
+      }
+      if (!analysisState.loading) {
+        elements.analysisSubmit.disabled = preview.messageCount === 0
+          || preview.messageCount > preview.analyzedCount
+          || (mode === "since_last" && !preview.hasPrevious);
+      }
+    } catch {
+      if (version !== analysisState.previewVersion) return;
+      elements.analysisRangeStatus.textContent = "消息状态暂不可用。";
+      if (!analysisState.loading) elements.analysisSubmit.disabled = false;
+    }
   }
 
   async function queryAnalysisList(page) {
@@ -1326,7 +1374,9 @@
       row.type = "button";
       const date = document.createElement("span");
       date.className = "analysis-item-date";
-      date.textContent = item.date;
+      const rangeNames = {last3: "最近 3 天", last7: "最近 7 天", since_last: "上次分析以来"};
+      date.textContent = rangeNames[item.rangeMode] || item.date;
+      if (item.rangeStart) date.title = `${item.rangeStart} ～ ${item.rangeEnd}`;
       const prompt = document.createElement("span");
       prompt.className = "analysis-item-prompt";
       prompt.textContent = item.promptPreview || "";
@@ -1358,8 +1408,10 @@
     const meta = elements.analysisDetailMeta;
     meta.replaceChildren();
     const fields = [
-      {label: "分析日期", value: view.date},
+      {label: view.rangeStart ? "分析范围" : "分析日期",
+        value: view.rangeStart ? `${view.rangeStart} ～ ${view.rangeEnd}` : view.date},
       {label: "分析条数", value: view.messageCount != null ? `${view.messageCount} 条` : ""},
+      {label: "范围内总数", value: view.totalCount > view.messageCount ? `${view.totalCount} 条` : ""},
       {label: "分析时间", value: view.createdAt}
     ];
     for (const field of fields) {
@@ -1444,6 +1496,7 @@
   }
 
   async function submitAnalysis() {
+    analysisState.loading = true;
     elements.analysisSubmit.disabled = true;
     elements.analysisSubmit.textContent = "分析中…";
     elements.analysisEmpty.hidden = true;
@@ -1469,9 +1522,10 @@
     try {
       const params = new URLSearchParams({
         gid: String(analysisState.gid),
-        date: elements.analysisDate.value,
+        range: elements.analysisRange.value,
         prompt: elements.analysisPrompt.value
       });
+      if (elements.analysisRange.value === "day") params.set("date", elements.analysisDate.value);
       const response = await fetch("/chat/analyses/stream", {
         method: "POST",
         headers: {"Content-Type": "application/x-www-form-urlencoded"},
@@ -1517,17 +1571,28 @@
       elements.analysisResults.hidden = false;
       elements.analysisFeedback.textContent = `分析失败：${error.message}`;
     } finally {
-      elements.analysisSubmit.disabled = false;
+      analysisState.loading = false;
       elements.analysisSubmit.textContent = "🤖 分析";
+      refreshAnalysisPreview();
     }
   }
 
-  elements.analysisOpen.addEventListener("click", () => {
+  function openAnalysisDialog() {
     resetAnalysis(state.currentGid);
     elements.analysisDialog.showModal();
     queryAnalysisList(1);
-  });
+    refreshAnalysisPreview();
+  }
+  elements.analysisOpen.addEventListener("click", openAnalysisDialog);
+  elements.analysisRange.addEventListener("change", refreshAnalysisPreview);
+  elements.analysisDate.addEventListener("change", refreshAnalysisPreview);
   elements.analysisClose.addEventListener("click", () => elements.analysisDialog.close());
+  elements.analysisDialog.addEventListener("close", () => {
+    if (new URLSearchParams(location.search).get("analysis") === "1"
+        && matchMedia("(max-width: 768px)").matches) {
+      location.replace("/chat/mobile/index.html");
+    }
+  });
   elements.analysisForm.addEventListener("submit", event => {
     event.preventDefault();
     submitAnalysis();
@@ -1544,7 +1609,9 @@
   });
   elements.analysisDownload.addEventListener("click", () => {
     if (!currentAnalysisView) return;
-    const header = `# 群聊分析报告\n\n- 分析日期：${currentAnalysisView.date}\n- 分析条数：${currentAnalysisView.messageCount} 条\n- 分析时间：${currentAnalysisView.createdAt}\n- 提示词：${currentAnalysisView.prompt}\n\n---\n\n`;
+    const range = currentAnalysisView.rangeStart
+      ? `${currentAnalysisView.rangeStart} ～ ${currentAnalysisView.rangeEnd}` : currentAnalysisView.date;
+    const header = `# 群聊分析报告\n\n- 分析范围：${range}\n- 分析条数：${currentAnalysisView.messageCount} 条\n- 分析时间：${currentAnalysisView.createdAt}\n- 提示词：${currentAnalysisView.prompt}\n\n---\n\n`;
     const blob = new Blob([header + currentAnalysisView.result], {type: "text/markdown;charset=utf-8"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

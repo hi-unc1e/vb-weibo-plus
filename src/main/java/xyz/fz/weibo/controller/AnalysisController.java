@@ -10,12 +10,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import xyz.fz.weibo.domain.AnalysisPageResult;
+import xyz.fz.weibo.domain.AnalysisRangePreview;
 import xyz.fz.weibo.domain.AnalysisView;
 import xyz.fz.weibo.service.AnalysisService;
 
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * 群聊分析接口。
@@ -36,9 +38,11 @@ public class AnalysisController {
     @PostMapping
     public AnalysisView analyze(
             @RequestParam long gid,
-            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+            @RequestParam(required = false) String range,
             @RequestParam String prompt) {
-        return analysisService.analyze(gid, date, prompt);
+        return range == null ? analysisService.analyze(gid, date, prompt)
+                : analysisService.analyze(gid, date, range, prompt);
     }
 
     /**
@@ -47,18 +51,22 @@ public class AnalysisController {
     @PostMapping("/stream")
     public SseEmitter analyzeStream(
             @RequestParam long gid,
-            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+            @RequestParam(required = false) String range,
             @RequestParam String prompt) {
         SseEmitter emitter = new SseEmitter((timeoutSeconds + 60L) * 1000L);
         CompletableFuture.runAsync(() -> {
             try {
-                AnalysisView view = analysisService.analyzeStreaming(gid, date, prompt, delta -> {
+                Consumer<String> onDelta = delta -> {
                     try {
                         emitter.send(SseEmitter.event().name("delta").data(delta));
                     } catch (IOException e) {
                         throw new IllegalStateException("推送分析结果失败：" + e.getMessage(), e);
                     }
-                });
+                };
+                AnalysisView view = range == null
+                        ? analysisService.analyzeStreaming(gid, date, prompt, onDelta)
+                        : analysisService.analyzeStreaming(gid, date, range, prompt, onDelta);
                 emitter.send(SseEmitter.event().name("done").data(view));
                 emitter.complete();
             } catch (Exception e) {
@@ -71,6 +79,13 @@ public class AnalysisController {
             }
         });
         return emitter;
+    }
+
+    @GetMapping("/preview")
+    public AnalysisRangePreview preview(@RequestParam long gid,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+            @RequestParam(defaultValue = "day") String range) {
+        return analysisService.preview(gid, date, range);
     }
 
     @GetMapping

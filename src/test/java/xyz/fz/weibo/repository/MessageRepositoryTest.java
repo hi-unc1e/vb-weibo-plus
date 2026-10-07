@@ -211,6 +211,17 @@ class MessageRepositoryTest {
     }
 
     @Test
+    void counts_messages_within_inclusive_group_time_range() {
+        messageRepository.insertIfAbsent(message(100, 1, 1_000, "早", ""));
+        messageRepository.insertIfAbsent(message(101, 1, 2_000, "中", ""));
+        messageRepository.insertIfAbsent(message(102, 1, 3_000, "晚", ""));
+        messageRepository.insertIfAbsent(message(103, 2, 2_000, "其他群", ""));
+
+        assertThat(messageRepository.countByGidAndCreatedAtBetween(1, 1_000, 2_000)).isEqualTo(2);
+        assertThat(messageRepository.countByGidAndCreatedAtBetween(2, 1_000, 2_000)).isEqualTo(1);
+    }
+
+    @Test
     void schema_provides_the_agreed_group_time_index() throws Exception {
         boolean found = false;
         try (var connection = dataSource.getConnection();

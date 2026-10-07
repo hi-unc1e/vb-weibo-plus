@@ -11,6 +11,8 @@ import xyz.fz.weibo.entity.AnalysisEntity;
 
 public interface AnalysisRepository extends JpaRepository<AnalysisEntity, Long>, JpaSpecificationExecutor<AnalysisEntity> {
 
+    java.util.Optional<AnalysisEntity> findTopByGidOrderByCreatedAtDescIdDesc(long gid);
+
     default Page<AnalysisEntity> findPage(long gid, Pageable pageable) {
         Specification<AnalysisEntity> specification = (root, query, builder) ->
                 builder.equal(root.get("gid"), gid);

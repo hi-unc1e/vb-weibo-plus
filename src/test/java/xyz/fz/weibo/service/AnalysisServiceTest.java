@@ -7,6 +7,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.data.domain.Pageable;
 import xyz.fz.weibo.client.AiClient;
@@ -18,6 +20,7 @@ import xyz.fz.weibo.repository.AnalysisRepository;
 import xyz.fz.weibo.repository.MessageRepository;
 import xyz.fz.weibo.service.exception.InvalidRequestException;
 
+import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,12 +49,14 @@ class AnalysisServiceTest {
     private AnalysisRepository analysisRepository;
     @Mock
     private AiClient aiClient;
+    @Mock
+    private JdbcTemplate jdbcTemplate;
 
     private AnalysisService analysisService;
 
     @BeforeEach
     void setUp() {
-        analysisService = new AnalysisService(messageRepository, analysisRepository, aiClient);
+        analysisService = new AnalysisService(messageRepository, analysisRepository, aiClient, jdbcTemplate);
     }
 
     @Test
@@ -232,6 +238,74 @@ class AnalysisServiceTest {
         assertThatThrownBy(() -> analysisService.get(1L))
                 .isInstanceOf(InvalidRequestException.class)
                 .hasMessageContaining("分析记录不存在");
+    }
+
+    @Test
+    void preview_recent_ranges_reports_message_count_and_coverage_limit() {
+        when(messageRepository.countByGidAndCreatedAtBetween(eq(GID), anyLong(), anyLong()))
+                .thenReturn(620L);
+
+        var threeDays = analysisService.preview(GID, null, "last3");
+        var sevenDays = analysisService.preview(GID, null, "last7");
+
+        assertThat(threeDays.messageCount()).isEqualTo(620);
+        assertThat(threeDays.analyzedCount()).isEqualTo(500);
+        assertThat(threeDays.rangeStart()).isNotNull();
+        assertThat(sevenDays.rangeStart().compareTo(threeDays.rangeStart())).isNegative();
+    }
+
+    @Test
+    void analyze_since_last_uses_previous_successful_analysis_boundary() {
+        AnalysisEntity previous = new AnalysisEntity(GID, 0L, "旧提示", "旧结果", 1, 1_000L);
+        ReflectionTestUtils.setField(previous, "id", 7L);
+        when(analysisRepository.findTopByGidOrderByCreatedAtDescIdDesc(GID))
+                .thenReturn(Optional.of(previous));
+        when(jdbcTemplate.query(any(String.class), any(RowMapper.class), eq(7L))).thenAnswer(inv -> {
+            ResultSet rs = mock(ResultSet.class);
+            when(rs.getString(1)).thenReturn("day");
+            when(rs.getLong(2)).thenReturn(0L);
+            when(rs.getLong(3)).thenReturn(500L);
+            when(rs.getLong(4)).thenReturn(1L);
+            RowMapper<?> mapper = inv.getArgument(1);
+            return List.of(mapper.mapRow(rs, 0));
+        });
+        when(messageRepository.findPage(eq(GID), eq(501L), anyLong(), any(), any(),
+                eq(MessageRepository.pageRequest(1, 500))))
+                .thenReturn(new PageImpl<>(List.of(message(8L, "甲", "新增消息", "文本", 2_000L))));
+        when(aiClient.chat(any())).thenReturn("新增摘要");
+        when(analysisRepository.save(any())).thenAnswer(inv -> {
+            AnalysisEntity entity = inv.getArgument(0);
+            ReflectionTestUtils.setField(entity, "id", 9L);
+            return entity;
+        });
+
+        AnalysisView view = analysisService.analyze(GID, null, "since_last", "总结新增内容");
+
+        assertThat(view.result()).isEqualTo("新增摘要");
+        assertThat(view.messageCount()).isEqualTo(1);
+        verify(jdbcTemplate).update(eq("insert into analysis_ranges (analysis_id, range_mode, range_start, range_end, total_count) values (?, ?, ?, ?, ?)"),
+                eq(9L), eq("since_last"), eq(501L), anyLong(), eq(1L));
+    }
+
+    @Test
+    void since_last_requires_previous_analysis() {
+        assertThatThrownBy(() -> analysisService.analyze(GID, null, "since_last", "总结新增内容"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("暂无上次分析记录");
+        verify(aiClient, never()).chat(any());
+    }
+
+    @Test
+    void recent_range_rejects_more_than_limit_without_calling_ai() {
+        Pageable pageable = MessageRepository.pageRequest(1, 500);
+        when(messageRepository.findPage(eq(GID), anyLong(), anyLong(), any(), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(message(8L, "甲", "消息", "文本", 2_000L)),
+                        pageable, 501));
+
+        assertThatThrownBy(() -> analysisService.analyze(GID, null, "last7", "总结"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("超过 500 条");
+        verify(aiClient, never()).chat(any());
     }
 
     private MessageEntity message(long mid, String senderName, String text, String msgTypeName, long createdAt) {

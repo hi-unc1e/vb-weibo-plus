@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import xyz.fz.weibo.entity.AnalysisEntity;
@@ -33,6 +34,8 @@ class AnalysisRepositoryTest {
 
     @Autowired
     private DataSource dataSource;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
@@ -81,6 +84,27 @@ class AnalysisRepositoryTest {
         assertThat(page.getTotalElements()).isEqualTo(2);
         assertThat(page.getContent()).extracting(AnalysisEntity::getPrompt)
                 .containsExactly("晚的", "早的");
+    }
+
+    @Test
+    void latest_analysis_is_scoped_to_group() {
+        analysisRepository.save(analysis(100L, 0L, "早的", "结果", 1, 100L));
+        analysisRepository.save(analysis(100L, 0L, "晚的", "结果", 1, 200L));
+        analysisRepository.save(analysis(200L, 0L, "别的群", "结果", 1, 300L));
+
+        assertThat(analysisRepository.findTopByGidOrderByCreatedAtDescIdDesc(100L))
+                .get().extracting(AnalysisEntity::getPrompt).isEqualTo("晚的");
+    }
+
+    @Test
+    void analysis_range_metadata_is_saved_in_existing_database_schema() {
+        AnalysisEntity saved = analysisRepository.save(analysis(100L, 0L, "提示", "结果", 2));
+
+        jdbcTemplate.update("insert into analysis_ranges (analysis_id, range_mode, range_start, range_end, total_count) values (?, ?, ?, ?, ?)",
+                saved.getId(), "last3", 1_000L, 2_000L, 3L);
+
+        assertThat(jdbcTemplate.queryForObject("select range_mode from analysis_ranges where analysis_id = ?",
+                String.class, saved.getId())).isEqualTo("last3");
     }
 
     private AnalysisEntity analysis(long gid, long date, String prompt, String result, int messageCount) {

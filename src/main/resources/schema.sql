@@ -101,3 +101,11 @@ CREATE TABLE IF NOT EXISTS analyses (
 );
 
 CREATE INDEX IF NOT EXISTS idx_analyses_gid_created ON analyses(gid, created_at DESC, id DESC);
+
+CREATE TABLE IF NOT EXISTS analysis_ranges (
+    analysis_id     BIGINT PRIMARY KEY,
+    range_mode      VARCHAR NOT NULL,
+    range_start     BIGINT NOT NULL,
+    range_end       BIGINT NOT NULL,
+    total_count     BIGINT NOT NULL
+);

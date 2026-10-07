@@ -591,6 +591,7 @@
     localStorage.setItem(LAST_GROUP_KEY, String(gid));
     document.querySelector("#brief-link").href = `/chat/brief/index.html?gid=${gid}`;
     document.querySelector("#chat-brief-link").href = `/chat/brief/index.html?gid=${gid}`;
+    document.querySelector("#chat-analysis-link").href = `/chat/index.html?analysis=1&gid=${gid}`;
     elements.currentGroup.textContent = group.name || `群聊 ${group.gid}`;
     updateChatHeader(group);
     elements.attachOpen.disabled = false;

@@ -21,6 +21,8 @@ import java.util.List;
 public interface MessageRepository extends JpaRepository<MessageEntity, Long>,
         JpaSpecificationExecutor<MessageEntity> {
 
+    long countByGidAndCreatedAtBetween(long gid, long start, long end);
+
     @Query("""
             select m from MessageEntity m
             where m.gid = :gid

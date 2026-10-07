@@ -14,6 +14,7 @@
     // 手机（小屏 + 触屏）自动跳转移动版；localStorage 标记过“桌面版”则留在桌面
     (function () {
       try {
+        if (new URLSearchParams(location.search).get("analysis") === "1") return;
         if (localStorage.getItem("weibo-chat:prefer-desktop")) return;
         if (matchMedia("(max-width: 768px)").matches && matchMedia("(pointer: coarse)").matches) {
           location.replace("/chat/mobile/index.html");
@@ -172,8 +173,16 @@
       <div class="analysis-layout">
         <form class="analysis-filters" id="analysis-form">
           <h3>分析条件</h3>
-          <label for="analysis-date">分析日期</label>
+          <label for="analysis-range">时间范围</label>
+          <select id="analysis-range">
+            <option value="day">指定日期</option>
+            <option value="last3">最近 3 天</option>
+            <option value="last7">最近 7 天</option>
+            <option value="since_last">上次分析以来</option>
+          </select>
+          <label for="analysis-date" id="analysis-date-label">分析日期</label>
           <input id="analysis-date" type="date" required>
+          <p id="analysis-range-status" class="analysis-range-status" role="status">正在查询消息状态…</p>
           <label for="analysis-prompt">提示词</label>
           <textarea id="analysis-prompt" rows="5" required>请总结今天群聊的主要讨论话题和参与者</textarea>
           <button class="primary-button" id="analysis-submit" type="submit">🤖 分析</button>

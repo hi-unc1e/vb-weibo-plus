@@ -7,6 +7,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import xyz.fz.weibo.domain.AnalysisPageResult;
+import xyz.fz.weibo.domain.AnalysisRangePreview;
 import xyz.fz.weibo.domain.AnalysisSummary;
 import xyz.fz.weibo.domain.AnalysisView;
 import xyz.fz.weibo.service.AnalysisService;
@@ -56,6 +57,26 @@ class AnalysisControllerTest {
                 .andExpect(jsonPath("$.result").value("结果"))
                 .andExpect(jsonPath("$.messageCount").value(5))
                 .andExpect(jsonPath("$.createdAt").value("2026-08-07 10:00:00"));
+    }
+
+    @Test
+    void preview_and_recent_range_accept_requests_without_date() throws Exception {
+        when(analysisService.preview(1L, null, "last3"))
+                .thenReturn(new AnalysisRangePreview("last3", "2026-08-04 10:00:00",
+                        "2026-08-07 10:00:00", null, 12, 12, false));
+        mockMvc.perform(get("/chat/analyses/preview")
+                        .param("gid", "1").param("range", "last3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.messageCount").value(12));
+
+        when(analysisService.analyze(1L, null, "last3", "总结"))
+                .thenReturn(new AnalysisView(10L, 1L, "2026-08-07", "总结", "结果", 12,
+                        "2026-08-07 10:00:00", "last3", "2026-08-04 10:00:00",
+                        "2026-08-07 10:00:00", 12));
+        mockMvc.perform(post("/chat/analyses")
+                        .param("gid", "1").param("range", "last3").param("prompt", "总结"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rangeMode").value("last3"));
     }
 
     @Test

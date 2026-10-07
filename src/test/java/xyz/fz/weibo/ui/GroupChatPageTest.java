@@ -360,6 +360,20 @@ class GroupChatPageTest {
             loginInvalid.set(false);
             sendJson(exchange, "{\"sub\":\"SUB\",\"subp\":\"SUBP\",\"ssoLoginState\":\"1\",\"alf\":\"1\"}");
         });
+        server.createContext("/chat/analyses/preview", exchange -> {
+            String query = exchange.getRequestURI().getRawQuery();
+            if (query != null && query.contains("range=since_last")) {
+                sendJson(exchange, "{\"rangeMode\":\"since_last\",\"messageCount\":0,\"analyzedCount\":0,\"hasPrevious\":false}");
+            } else {
+                int count = query != null && query.contains("range=last3") ? 12
+                        : query != null && query.contains("range=last7") ? 620 : 2;
+                int analyzed = Math.min(count, 500);
+                sendJson(exchange, "{\"rangeMode\":\"last3\",\"messageCount\":" + count
+                        + ",\"analyzedCount\":" + analyzed + ",\"hasPrevious\":false}");
+            }
+        });
+        server.createContext("/chat/analyses", exchange -> sendJson(exchange,
+                "{\"items\":[],\"page\":1,\"size\":20,\"total\":0}"));
         server.createContext("/chat/", GroupChatPageTest::sendStaticResource);
         server.start();
         baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
@@ -433,6 +447,36 @@ class GroupChatPageTest {
                 """);
         Assertions.assertThat(avatarFitsContainer).isEqualTo(true);
 
+        page.close();
+    }
+
+    @Test
+    void analysis_range_shows_status_and_disables_since_last_without_history() {
+        Page page = browser.newPage();
+        page.navigate(baseUrl + "/chat/index.html");
+        page.locator("#analysis-open").click();
+        page.locator("#analysis-range").selectOption("last3");
+        assertThat(page.locator("#analysis-range-status")).containsText("待分析 12 条消息");
+        assertThat(page.locator("#analysis-date")).isHidden();
+        page.locator("#analysis-range").selectOption("since_last");
+        assertThat(page.locator("#analysis-range-status")).containsText("请先完成一次分析");
+        assertThat(page.locator("#analysis-submit")).isDisabled();
+        page.close();
+    }
+
+    @Test
+    void mobile_analysis_link_opens_selected_group_in_single_column_dialog() {
+        Page page = browser.newPage(new Browser.NewPageOptions().setViewportSize(390, 844));
+        page.navigate(baseUrl + "/chat/index.html?analysis=1&gid=202");
+        assertThat(page.locator("#analysis-dialog")).isVisible();
+        assertThat(page.locator("#analysis-title")).containsText("LinkNow");
+        page.locator("#analysis-range").selectOption("last7");
+        assertThat(page.locator("#analysis-date")).isHidden();
+        assertThat(page.locator("#analysis-range-status")).containsText("超过单次上限 500 条");
+        assertThat(page.locator("#analysis-submit")).isDisabled();
+        Assertions.assertThat(page.locator(".analysis-dialog").boundingBox().width).isLessThan(390);
+        page.locator("#analysis-close").click();
+        assertThat(page).hasURL(baseUrl + "/chat/mobile/index.html");
         page.close();
     }
 
